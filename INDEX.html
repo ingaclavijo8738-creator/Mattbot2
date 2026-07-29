@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioBot - Asistente de Biología</title>
+    <!-- Tailwind CSS CDN para estilos responsivos y modernos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Fuente Inter desde Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        // Configuración personalizada de Tailwind CSS con paleta Verde-Azul-Blanco
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bioGreen: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                        },
+                        bioBlue: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                        },
+                        bioTeal: {
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Estilos personalizados para la barra de desplazamiento */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Animación suave para la entrada de mensajes */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        /* Indicador de escritura animado */
+        .typing-dot {
+            animation: typingAnimation 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingAnimation {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Fondo degradado suave */
+        .bio-bg-gradient {
+            background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #f8fafc 100%);
+        }
+
+        /* Formato de texto del bot (Markdown simplificado) */
+        .formatted-content p {
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+        }
+        .formatted-content p:last-child {
+            margin-bottom: 0;
+        }
+        .formatted-content ul {
+            list-style-type: disc;
+            padding-left: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+        .formatted-content ol {
+            list-style-type: decimal;
+            padding-left: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+        .formatted-content li {
+            margin-bottom: 0.25rem;
+        }
+        .formatted-content strong {
+            color: #0f172a;
+            font-weight: 600;
+        }
+        .formatted-content code {
+            background-color: #f1f5f9;
+            padding: 0.15rem 0.35rem;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+            color: #0369a1;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans h-screen flex flex-col antialiased text-slate-800 overflow-hidden">
+
+    <!-- Encabezado Principal -->
+    <header class="bg-white border-b border-slate-200 px-4 py-3 shadow-sm flex items-center justify-between z-10">
+        <div class="flex items-center space-x-3">
+            <!-- Botón para alternar la barra lateral en pantallas pequeñas -->
+            <button id="toggleSidebarBtn" class="md:hidden text-slate-600 hover:text-bioGreen-600 p-2 rounded-lg hover:bg-slate-100 transition">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+            
+            <!-- Logotipo e Identidad de BioBot -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-bioGreen-600 to-bioBlue-500 flex items-center justify-center text-white shadow-md shadow-bioGreen-500/20">
+                    <i class="fa-solid fa-dna text-xl animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+                        BioBot
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-bioGreen-100 text-bioGreen-700 border border-bioGreen-200">
+                            Profesor Virtual
+                        </span>
+                    </h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">Asistente Educativo de Biología General y Molecular</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones del Encabezado -->
+        <div class="flex items-center space-x-2">
+            <!-- Selector de Modo de Respuesta (Local vs Gemini) -->
+            <button id="apiKeyModalBtn" title="Configurar API Key de Gemini" class="flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-300 transition">
+                <i class="fa-solid fa-key text-bioBlue-600"></i>
+                <span class="hidden sm:inline" id="apiStatusLabel">Usando Motor Local</span>
+            </button>
+
+            <!-- Limpiar conversación -->
+            <button id="clearChatBtn" title="Nueva Conversación" class="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal (Barra Lateral + Chat) -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Barra Lateral de Navegación y Temas Recomendados -->
+        <aside id="sidebar" class="absolute md:relative z-20 w-72 h-full bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0">
+            <!-- Encabezado de la barra lateral -->
+            <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <h2 class="font-semibold text-sm text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-book-bookmark text-bioGreen-600"></i>
+                    Temas de Estudio
+                </h2>
+                <button id="closeSidebarBtn" class="md:hidden text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Lista de Accesos Rápidos a Conceptos Clave -->
+            <div class="flex-1 overflow-y-auto p-3 space-y-1.5">
+                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider px-2 py-1">Preguntas Frecuentes</p>
+                
+                <button class="quick-topic-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-bioGreen-50 hover:text-bioGreen-700 transition flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-microscope text-bioGreen-500 group-hover:scale-110 transition-transform"></i>
+                    <span>¿Qué es la célula y sus partes?</span>
+                </button>
+
+                <button class="quick-topic-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-bioBlue-50 hover:text-bioBlue-700 transition flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-sun text-amber-500 group-hover:scale-110 transition-transform"></i>
+                    <span>¿Cómo funciona la fotosíntesis?</span>
+                </button>
+
+                <button class="quick-topic-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-bioGreen-50 hover:text-bioGreen-700 transition flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-dna text-bioBlue-500 group-hover:scale-110 transition-transform"></i>
+                    <span>Estructura y función del ADN</span>
+                </button>
+
+                <button class="quick-topic-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-bioBlue-50 hover:text-bioBlue-700 transition flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-diagram-project text-purple-500 group-hover:scale-110 transition-transform"></i>
+                    <span>Mitosis vs Meiosis</span>
+                </button>
+
+                <button class="quick-topic-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-bioGreen-50 hover:text-bioGreen-700 transition flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-tree text-emerald-600 group-hover:scale-110 transition-transform"></i>
+                    <span>Teoría de la Evolución</span>
+                </button>
+
+                <button class="quick-topic-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-bioBlue-50 hover:text-bioBlue-700 transition flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-virus text-red-500 group-hover:scale-110 transition-transform"></i>
+                    <span>Diferencias: Bacterias y Virus</span>
+                </button>
+
+                <button class="quick-topic-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-bioGreen-50 hover:text-bioGreen-700 transition flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-earth-americas text-teal-600 group-hover:scale-110 transition-transform"></i>
+                    <span>Flujo de energía en ecosistemas</span>
+                </button>
+
+                <button class="quick-topic-btn w-full text-left px-3 py-2.5 rounded-lg text-sm text-slate-700 hover:bg-bioBlue-50 hover:text-bioBlue-700 transition flex items-center gap-2.5 group">
+                    <i class="fa-solid fa-disease text-indigo-500 group-hover:scale-110 transition-transform"></i>
+                    <span>Leyes de Genética de Mendel</span>
+                </button>
+            </div>
+
+            <!-- Ficha informativa inferior en la barra lateral -->
+            <div class="p-3 border-t border-slate-100 bg-slate-50">
+                <div class="bg-white p-3 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1 shadow-sm">
+                    <p class="font-semibold text-bioGreen-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-graduation-cap"></i> Metodología Docente
+                    </p>
+                    <p class="text-slate-500 leading-relaxed">
+                        BioBot responde con explicaciones claras, ejemplos prácticos, términos clave y preguntas de repaso para afianzar tus conocimientos.
+                    </p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Overlay movil para cerrar la barra lateral -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-10 hidden md:hidden"></div>
+
+        <!-- Zona de Chat Principal -->
+        <main class="flex-1 flex flex-col h-full bio-bg-gradient relative">
+            
+            <!-- Mensajes del Chat -->
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+                
+                <!-- Tarjeta de Bienvenida Inicial -->
+                <div id="welcomeCard" class="max-w-2xl mx-auto bg-white/80 backdrop-blur border border-emerald-100 rounded-2xl p-6 shadow-sm text-center my-6 animate-fade-in">
+                    <div class="w-16 h-16 rounded-2xl bg-bioGreen-100 text-bioGreen-600 flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+                        <i class="fa-solid fa-leaf"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-slate-800 mb-2">¡Hola! Soy tu Profesor de Biología</h2>
+                    <p class="text-sm text-slate-600 mb-6 leading-relaxed">
+                        Estoy aquí para ayudarte a comprender desde el mundo microscópico de las células y genes hasta los complejos ecosistemas de nuestro planeta. ¿Qué tema deseas explorar hoy?
+                    </p>
+                    
+                    <!-- Tarjetas de Inicio Rápido -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                        <button class="quick-card-btn p-3 rounded-xl border border-slate-200 bg-white hover:border-bioGreen-400 hover:shadow-md transition text-xs space-y-1 group">
+                            <span class="font-semibold text-slate-800 group-hover:text-bioGreen-700 block flex items-center gap-1.5">
+                                <i class="fa-solid fa-atom text-bioGreen-500"></i> Estructura del ADN
+                            </span>
+                            <span class="text-slate-500 block">Aprende sobre nucleótidos, doble hélice y replicación.</span>
+                        </button>
+
+                        <button class="quick-card-btn p-3 rounded-xl border border-slate-200 bg-white hover:border-bioBlue-400 hover:shadow-md transition text-xs space-y-1 group">
+                            <span class="font-semibold text-slate-800 group-hover:text-bioBlue-700 block flex items-center gap-1.5">
+                                <i class="fa-solid fa-seedling text-bioBlue-500"></i> Proceso de Fotosíntesis
+                            </span>
+                            <span class="text-slate-500 block">Fase luminosa y Ciclo de Calvin detallados.</span>
+                        </button>
+
+                        <button class="quick-card-btn p-3 rounded-xl border border-slate-200 bg-white hover:border-bioGreen-400 hover:shadow-md transition text-xs space-y-1 group">
+                            <span class="font-semibold text-slate-800 group-hover:text-bioGreen-700 block flex items-center gap-1.5">
+                                <i class="fa-solid fa-cubes-stacked text-purple-500"></i> Célula Procariota vs Eucariota
+                            </span>
+                            <span class="text-slate-500 block">Diferencias clave en organelos y núcleo celular.</span>
+                        </button>
+
+                        <button class="quick-card-btn p-3 rounded-xl border border-slate-200 bg-white hover:border-bioBlue-400 hover:shadow-md transition text-xs space-y-1 group">
+                            <span class="font-semibold text-slate-800 group-hover:text-bioBlue-700 block flex items-center gap-1.5">
+                                <i class="fa-solid fa-bug text-emerald-500"></i> Mitosis vs Meiosis
+                            </span>
+                            <span class="text-slate-500 block">División celular somática y gametogénesis.</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Área de Entrada de Texto -->
+            <div class="p-3 md:p-4 bg-white/90 backdrop-blur border-t border-slate-200">
+                <div class="max-w-4xl mx-auto space-y-2">
+                    
+                    <!-- Formulario de Entrada -->
+                    <form id="chatForm" class="relative flex items-end bg-slate-50 border border-slate-300 focus-within:border-bioGreen-500 focus-within:ring-2 focus-within:ring-bioGreen-200 rounded-2xl shadow-sm transition">
+                        
+                        <!-- Caja de Texto Autoadaptable -->
+                        <textarea 
+                            id="userInput" 
+                            rows="1" 
+                            placeholder="Pregunta sobre células, genética, evolución, fotosíntesis..." 
+                            class="w-full pl-4 pr-24 py-3 bg-transparent text-slate-800 text-sm placeholder-slate-400 focus:outline-none resize-none max-h-36"
+                        ></textarea>
+
+                        <!-- Botones de Acción Internos -->
+                        <div class="absolute right-2 bottom-2 flex items-center space-x-1.5">
+                            
+                            <!-- Botón de Entrada por Voz -->
+                            <button 
+                                type="button" 
+                                id="micBtn" 
+                                title="Dictar por voz" 
+                                class="p-2 text-slate-400 hover:text-bioBlue-600 hover:bg-slate-200/60 rounded-xl transition"
+                            >
+                                <i class="fa-solid fa-microphone text-base"></i>
+                            </button>
+
+                            <!-- Botón Enviar -->
+                            <button 
+                                type="submit" 
+                                id="sendBtn" 
+                                disabled
+                                class="w-9 h-9 bg-bioGreen-600 hover:bg-bioGreen-700 disabled:bg-slate-300 text-white rounded-xl flex items-center justify-center transition shadow-sm"
+                            >
+                                <i class="fa-solid fa-paper-plane text-sm"></i>
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Pie con aviso y estado -->
+                    <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                        <span>BioBot v2.5 • Respuestas pedagógicas estructuradas</span>
+                        <span id="charCounter" class="hidden sm:inline">0 caracteres</span>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal para Configurar API Key de Gemini -->
+    <div id="apiKeyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 space-y-4 animate-fade-in">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-key text-bioBlue-600"></i>
+                    Conectar con Google Gemini API
+                </h3>
+                <button id="closeApiModalBtn" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-600 leading-relaxed">
+                Por defecto, BioBot responde utilizando su <strong>Base de Conocimientos Local</strong>. Si deseas habilitar la IA generativa en vivo con Google Gemini, ingresa tu clave API a continuación:
+            </p>
+
+            <div class="space-y-2">
+                <label for="apiKeyInput" class="block text-xs font-semibold text-slate-700">Clave API de Gemini:</label>
+                <input 
+                    type="password" 
+                    id="apiKeyInput" 
+                    placeholder="AIzaSy..." 
+                    class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-bioBlue-500 focus:ring-2 focus:ring-bioBlue-200"
+                />
+                <p class="text-[11px] text-slate-400">Tu API key se guarda únicamente en la memoria local de tu navegador (localStorage).</p>
+            </div>
+
+            <div class="flex items-center justify-end space-x-2 pt-2">
+                <button id="removeKeyBtn" class="px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-xl transition">
+                    Usar Solo Modo Local
+                </button>
+                <button id="saveKeyBtn" class="px-4 py-2 text-xs font-semibold text-white bg-bioBlue-600 hover:bg-bioBlue-700 rounded-xl shadow transition">
+                    Guardar y Activar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * =========================================================================
+         * BASE DE CONOCIMIENTOS LOCAL DE BIOLOGÍA (Simulador de Profesor)
+         * Contiene respuestas detalladas y estructuradas sobre conceptos fundamentales.
+         * =========================================================================
+         */
+        const BIOLOGY_KNOWLEDGE_BASE = [
+            {
+                keywords: ["celula", "célula", "organelos", "eucariota", "procariota", "membrana", "citoplasma", "nucleo", "núcleo"],
+                topic: "La Célula",
+                response: `¡Excelente pregunta! La **célula** es la unidad estructural, funcional y genética fundamental de todos los seres vivos.
+
+### 🧬 Clasificación Principal:
+1. **Procariotas:** Sin núcleo definido (el material genético flota libre en el citoplasma). Ejemplo: *Bacterias y Arqueas*.
+2. **Eucariotas:** Poseen núcleo delimitado por membrana y organelos con funciones específicas. Se dividen en *Animal* y *Vegetal*.
+
+### 🔬 Organelos Clave y sus Funciones:
+* **Núcleo:** Alberga el ADN y dirige la síntesis de proteínas.
+* **Mitocondrias:** Las "centrales energéticas" que realizan la respiración celular para producir ATP.
+* **Ribosomas:** Sintetizan proteínas según las instrucciones del ARN mensajero.
+* **Cloroplastos:** (Exclusivos de células vegetales) Realizan la fotosíntesis.
+* **Membrana Plasmática:** Bicapa lipídica que regula el transporte de sustancias hacia el interior y exterior.
+
+💡 **Pregunta de repaso:** *¿Sabías cuál es la principal diferencia funcional entre la pared celular vegetal y la membrana celular?*`
+            },
+            {
+                keywords: ["adn", "arn", "genetica", "genética", "nucleotido", "nucleótido", "doble helice", "gen", "genes"],
+                topic: "El ADN y Genética",
+                response: `El **ADN (Ácido Desoxirribonucleico)** es la molécula maestra que contiene toda la información genética necesaria para el desarrollo y funcionamiento de los organismos.
+
+### 🔬 Estructura Química:
+El ADN tiene forma de **doble hélice** (descubierta por Watson, Crick y Franklin). Está compuesto por cadenas de unidades llamadas *nucleótidos*, formados por:
+1. Un grupo fosfato.
+2. Un azúcar desoxirribosa.
+3. Una base nitrogenada: **Adenina (A)**, **Timina (T)**, **Citosina (C)** y **Guanina (G)**.
+
+### 🔗 Regla de Apareamiento de Bases:
+* **A** siempre se une con **T** (mediante 2 puentes de hidrógeno).
+* **C** siempre se une con **G** (mediante 3 puentes de hidrógeno).
+
+### 🔄 Del ADN a las Proteínas (Dogma Central):
+$$\\text{ADN} \\xrightarrow{\\text{Transcripción}} \\text{ARNm} \\xrightarrow{\\text{Traducción}} \\text{Proteína}$$
+
+💡 **Dato clave:** El ARN sustituye la Timina (T) por **Uracilo (U)** y posee una sola hebra.`
+            },
+            {
+                keywords: ["fotosintesis", "fotosíntesis", "clorofila", "calvin", "luz", "planta", "oxigeno", "oxígeno", "estomas"],
+                topic: "La Fotosíntesis",
+                response: `La **fotosíntesis** es el proceso bioquímico fotosintético mediante el cual las plantas, algas y cianobacterias transforman la energía solar en energía química (glucosa).
+
+### 🧪 Ecuación Química General:
+$$6\\text{CO}_2 + 6\\text{H}_2\\text{O} + \\text{Luz Solar} \\rightarrow \\text{C}_6\\text{H}_{12}\\text{O}_6 + 6\\text{O}_2$$
+
+### ☀️ Las dos fases principales:
+1. **Fase Luminosa (dependiente de la luz):**
+   * Ocurre en los *tilacoides* del cloroplasto.
+   * La clorofila absorbe luz, rompe moléculas de agua (fotólisis) liberando **Oxígeno ($O_2$)** y produce energía en forma de ATP y NADPH.
+2. **Fase Oscura (Ciclo de Calvin):**
+   * Ocurre en el *estroma* del cloroplasto.
+   * Utiliza el $CO_2$ del aire junto con el ATP y NADPH para sintetizar carbohidratos como la **glucosa**.
+
+🌿 **Importancia ecológica:** Es la base de las cadenas tróficas y suministra el oxígeno que respiramos.`
+            },
+            {
+                keywords: ["mitosis", "meiosis", "division celular", "división celular", "profase", "metafase", "anafase", "telofase", "gametos"],
+                topic: "Mitosis y Meiosis",
+                response: `Tanto la **mitosis** como la **meiosis** son procesos de división celular, pero tienen objetivos biológicos totalmente distintos:
+
+### 🧫 1. Mitosis (División Somática):
+* **Propósito:** Crecimiento, reparación de tejidos y reproducción asexual.
+* **Resultado:** 2 células hijas **diploides ($2n$)** idénticas genéticamente a la madre.
+* **Fases:** Profase $\\rightarrow$ Metafase $\\rightarrow$ Anafase $\\rightarrow$ Telofase.
+
+### 🧬 2. Meiosis (División Germinal):
+* **Propósito:** Formación de gametos (espermatozoides y óvulos) para la reproducción sexual.
+* **Resultado:** 4 células hijas **haploides ($n$)** genéticamente diferentes.
+* **Mecanismo Clave:** Ocurre el *entrecruzamiento o crossing-over* en la Profase I, garantizando la variabilidad genética.
+
+⚖️ **Resumen rápido:** La mitosis mantiene constante el número de cromosomas; la meiosis lo reduce a la mitad.`
+            },
+            {
+                keywords: ["evolucion", "evolución", "darwin", "seleccion natural", "selección natural", "adaptacion", "adaptación", "especies"],
+                topic: "Evolución y Selección Natural",
+                response: `La **evolución** es el proceso continuo de cambio en los rasgos hereditarios de las poblaciones biológicas a lo largo de las generaciones.
+
+### 🐢 Teoría de la Selección Natural (Charles Darwin):
+1. **Variabilidad:** En una población existen diferencias heredables entre individuos.
+2. **Sobreproducción:** Se producen más descendientes de los que el entorno puede sostener.
+3. **Lucha por la existencia:** Competencia por recursos limitados (alimento, pareja, espacio).
+4. **Reproducción diferencial:** Los individuos con adaptaciones ventajosas sobreviven más tiempo y dejan mayor descendencia.
+
+### 💡 Aclaración Importante:
+> *"La evolución no significa que el organismo más fuerte sobreviva, sino el mejor adaptado a su entorno específico."*`
+            },
+            {
+                keywords: ["bacterias", "virus", "infeccion", "infección", "antibiotico", "antibiótico", "vacuna", "capside", "cápside"],
+                topic: "Bacterias vs Virus",
+                response: `Es crucial diferenciar entre **bacterias** y **virus**, ya que su biología y tratamientos médicos son completamente opuestos:
+
+| Característica | Bacterias 🧫 | Virus 🦠 |
+| :--- | :--- | :--- |
+| **Naturaleza** | Organismos vivos procariotas unicelulares. | Entidades acelulares no vivas fuera de un huésped. |
+| **Estructura** | Membrana, pared celular, ADN/ARN, ribosomas. | Capa proteica (cápside) que envuelve material genético. |
+| **Reproducción** | Autónoma por fisión binaria. | Requieren secuestrar la maquinaria celular huésped. |
+| **Tratamiento** | **Antibióticos** (ej. Penicilina). | **Antivirales / Vacunas** (Los antibióticos NO funcionan). |
+
+⚠️ **Regla de Oro:** Nunca uses antibióticos para una infección vírica (como la gripe o resfriado), pues no tendrá efecto y genera resistencia bacteriana.`
+            },
+            {
+                keywords: ["ecosistema", "ecosistemas", "cadena trofica", "cadena trófica", "productor", "consumidor", "descomponedor", "biodiversidad"],
+                topic: "Ecosistemas y Ecología",
+                response: `Un **ecosistema** es la unidad ecológica formada por la interacción entre la comunidad biológica (biocenosis) y su medio físico no vivo (biotopo).
+
+### 🔄 Niveles Tróficos (Flujo de Energía):
+1. **Productores Autótrofos:** Transforman materia inorgánica en orgánica mediante fotosíntesis (Plantas, algas).
+2. **Consumidores Heterótrofos:**
+   * *Primarios:* Herbívoros que consumen plantas.
+   * *Secundarios:* Carnívoros que consumen herbívoros.
+   * *Terciarios:* Depredadores superiores.
+3. **Descomponedores:** Hongos y bacterias que reciclan la materia orgánica devolviendo nutrientes al suelo.
+
+💡 **Ley del 10%:** En cada nivel trófico solo se aprovecha aproximadamente el $10\\%$ de la energía del nivel anterior para la biomasa; el resto se pierde como calor.`
+            },
+            {
+                keywords: ["mendel", "leyes de mendel", "alelo", "dominante", "recesivo", "genotipo", "fenotipo", "heterocigoto", "homocigoto"],
+                topic: "Genética Mendeliana",
+                response: `Gregor Mendel, considerado el padre de la genética, descubrió los principios fundamentales de la herencia estudiando guisantes (*Pisum sativum*).
+
+### 🧬 Conceptos Básicos:
+* **Genotipo:** La constitución genética de un organismo.
+* **Fenotipo:** Las características físicas o bien observables (Genotipo + Ambiente).
+* **Alelo Dominante (A):** Se expresa aunque solo haya una copia presente.
+* **Alelo Recesivo (a):** Se expresa únicamente si el individuo es homocigoto recesivo ($aa$).
+
+### 📜 Las Leyes de Mendel:
+1. **Primera Ley (Uniformidad):** El cruce de dos razas puras ($AA \\times aa$) produce híbridos $Aa$ 100% idénticos en fenotipo al dominante.
+2. **Segunda Ley (Segregación):** En la F2 los alelos se separan, reapareciendo la característica recesiva en proporción $3:1$.
+3. **Tercera Ley (Transmisión Independiente):** Diferentes rasgos se heredan independientemente unos de otros.`
+            }
+        ];
+
+        // Estado de la Aplicación
+        let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
+        let isProcessing = false;
+        let recognition = null;
+        let isListening = false;
+
+        // Elementos del DOM
+        const chatMessages = document.getElementById('chatMessages');
+        const welcomeCard = document.getElementById('welcomeCard');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const micBtn = document.getElementById('micBtn');
+        const chatForm = document.getElementById('chatForm');
+        const charCounter = document.getElementById('charCounter');
+        const clearChatBtn = document.getElementById('clearChatBtn');
+        const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+        const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const apiKeyModalBtn = document.getElementById('apiKeyModalBtn');
+        const apiKeyModal = document.getElementById('apiKeyModal');
+        const closeApiModalBtn = document.getElementById('closeApiModalBtn');
+        const saveKeyBtn = document.getElementById('saveKeyBtn');
+        const removeKeyBtn = document.getElementById('removeKeyBtn');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const apiStatusLabel = document.getElementById('apiStatusLabel');
+
+        // Configuración inicial al cargar el DOM
+        window.addEventListener('DOMContentLoaded', () => {
+            updateApiStatusUI();
+            setupTextareaAutoResize();
+            setupVoiceRecognition();
+        });
+
+        // Actualiza el estado visual de la API
+        function updateApiStatusUI() {
+            if (geminiApiKey) {
+                apiStatusLabel.textContent = 'Modo Gemini IA Activo';
+                apiKeyModalBtn.classList.add('border-bioGreen-400', 'bg-bioGreen-50');
+            } else {
+                apiStatusLabel.textContent = 'Usando Motor Local';
+                apiKeyModalBtn.classList.remove('border-bioGreen-400', 'bg-bioGreen-50');
+            }
+        }
+
+        // Ajuste automático de altura de la caja de texto
+        function setupTextareaAutoResize() {
+            userInput.addEventListener('input', () => {
+                userInput.style.height = 'auto';
+                userInput.style.height = Math.min(userInput.scrollHeight, 144) + 'px';
+                
+                const len = userInput.value.trim().length;
+                sendBtn.disabled = len === 0 || isProcessing;
+                charCounter.textContent = `${len} caracteres`;
+            });
+
+            userInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!sendBtn.disabled) {
+                        chatForm.dispatchEvent(new Event('submit'));
+                    }
+                }
+            });
+        }
+
+        // Configuración del Dictado por Voz
+        function setupVoiceRecognition() {
+            if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.lang = 'es-ES';
+                recognition.continuous = false;
+                recognition.interimResults = false;
+
+                recognition.onstart = () => {
+                    isListening = true;
+                    micBtn.classList.add('text-red-500', 'animate-pulse');
+                    micBtn.title = 'Escuchando... Haz tu pregunta';
+                };
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    userInput.value = transcript;
+                    userInput.dispatchEvent(new Event('input'));
+                };
+
+                recognition.onerror = () => {
+                    stopListening();
+                };
+
+                recognition.onend = () => {
+                    stopListening();
+                };
+
+                micBtn.addEventListener('click', () => {
+                    if (isListening) {
+                        recognition.stop();
+                    } else {
+                        try {
+                            recognition.start();
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }
+                });
+            } else {
+                micBtn.style.display = 'none';
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            micBtn.classList.remove('text-red-500', 'animate-pulse');
+            micBtn.title = 'Dictar por voz';
+        }
+
+        // Alternar barra lateral móvil
+        function toggleSidebar() {
+            sidebar.classList.toggle('-translate-x-full');
+            sidebarOverlay.classList.toggle('hidden');
+        }
+
+        toggleSidebarBtn.addEventListener('click', toggleSidebar);
+        closeSidebarBtn.addEventListener('click', toggleSidebar);
+        sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        // Gestión del Modal API Key
+        apiKeyModalBtn.addEventListener('click', () => {
+            apiKeyInput.value = geminiApiKey;
+            apiKeyModal.classList.remove('hidden');
+        });
+
+        closeApiModalBtn.addEventListener('click', () => {
+            apiKeyModal.classList.add('hidden');
+        });
+
+        saveKeyBtn.addEventListener('click', () => {
+            const val = apiKeyInput.value.trim();
+            if (val) {
+                geminiApiKey = val;
+                localStorage.setItem('gemini_api_key', val);
+            }
+            updateApiStatusUI();
+            apiKeyModal.classList.add('hidden');
+        });
+
+        removeKeyBtn.addEventListener('click', () => {
+            geminiApiKey = '';
+            localStorage.removeItem('gemini_api_key');
+            apiKeyInput.value = '';
+            updateApiStatusUI();
+            apiKeyModal.classList.add('hidden');
+        });
+
+        // Limpiar Conversación
+        clearChatBtn.addEventListener('click', () => {
+            chatMessages.innerHTML = '';
+            chatMessages.appendChild(welcomeCard);
+            welcomeCard.classList.remove('hidden');
+        });
+
+        // Botones de Temas Rápidos
+        document.querySelectorAll('.quick-topic-btn, .quick-card-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const text = btn.querySelector('span')?.textContent || btn.textContent.trim();
+                userInput.value = text.trim();
+                userInput.dispatchEvent(new Event('input'));
+                if (window.innerWidth < 768 && !sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar();
+                }
+                userInput.focus();
+            });
+        });
+
+        // Manejo del Envío del Formulario
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageText = userInput.value.trim();
+            if (!messageText || isProcessing) return;
+
+            // Ocultar tarjeta de bienvenida al iniciar conversación
+            if (!welcomeCard.classList.contains('hidden')) {
+                welcomeCard.classList.add('hidden');
+            }
+
+            // Renderizar mensaje del usuario
+            appendMessage('user', messageText);
+
+            // Limpiar input
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            userInput.dispatchEvent(new Event('input'));
+
+            // Mostrar indicador de pensamiento
+            const typingElem = appendTypingIndicator();
+            isProcessing = true;
+            sendBtn.disabled = true;
+
+            try {
+                // Obtener respuesta (Local o Gemini API)
+                const botResponse = await obtenerRespuesta(messageText);
+                
+                // Remover indicador de carga
+                typingElem.remove();
+                
+                // Renderizar respuesta del Profesor BioBot
+                appendMessage('bot', botResponse);
+            } catch (error) {
+                typingElem.remove();
+                appendMessage('bot', '❌ Disculpa, ocurrió un inconveniente al procesar tu consulta. Por favor intenta nuevamente.');
+                console.error(error);
+            } finally {
+                isProcessing = false;
+                sendBtn.disabled = userInput.value.trim().length === 0;
+            }
+        });
+
+        // Función para renderizar mensajes en el chat
+        function appendMessage(sender, text) {
+            const msgContainer = document.createElement('div');
+            msgContainer.className = `flex gap-3 max-w-3xl mx-auto ${sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`;
+
+            if (sender === 'bot') {
+                const avatar = document.createElement('div');
+                avatar.className = 'w-8 h-8 rounded-xl bg-bioGreen-600 text-white flex items-center justify-center text-sm shadow-sm flex-shrink-0 mt-1';
+                avatar.innerHTML = '<i class="fa-solid fa-graduation-cap"></i>';
+                msgContainer.appendChild(avatar);
+
+                const bubbleWrapper = document.createElement('div');
+                bubbleWrapper.className = 'flex flex-col space-y-1 max-w-[85%]';
+
+                const bubble = document.createElement('div');
+                bubble.className = 'bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm text-slate-800 text-sm formatted-content';
+                bubble.innerHTML = formatMarkdown(text);
+
+                // Botones de acción debajo del mensaje del bot (Copiar y Lectura en voz alta)
+                const actionsBar = document.createElement('div');
+                actionsBar.className = 'flex items-center space-x-2 text-[11px] text-slate-400 pl-1 pt-0.5';
+                
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'hover:text-slate-600 transition flex items-center gap-1';
+                copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copiar';
+                copyBtn.onclick = () => {
+                    const temp = document.createElement('textarea');
+                    temp.value = text;
+                    document.body.appendChild(temp);
+                    temp.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(temp);
+                    copyBtn.innerHTML = '<i class="fa-solid fa-check text-bioGreen-600"></i> ¡Copiado!';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copiar';
+                    }, 2000);
+                };
+
+                const ttsBtn = document.createElement('button');
+                ttsBtn.className = 'hover:text-bioBlue-600 transition flex items-center gap-1';
+                ttsBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Escuchar';
+                ttsBtn.onclick = () => speakText(text);
+
+                actionsBar.appendChild(copyBtn);
+                actionsBar.appendChild(ttsBtn);
+
+                bubbleWrapper.appendChild(bubble);
+                bubbleWrapper.appendChild(actionsBar);
+                msgContainer.appendChild(bubbleWrapper);
+            } else {
+                const bubble = document.createElement('div');
+                bubble.className = 'bg-bioGreen-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-sm text-sm max-w-[85%] whitespace-pre-wrap';
+                bubble.textContent = text;
+                msgContainer.appendChild(bubble);
+            }
+
+            chatMessages.appendChild(msgContainer);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Indicador animado de "Escribiendo..."
+        function appendTypingIndicator() {
+            const container = document.createElement('div');
+            container.className = 'flex gap-3 max-w-3xl mx-auto justify-start animate-fade-in';
+            container.innerHTML = `
+                <div class="w-8 h-8 rounded-xl bg-bioGreen-600 text-white flex items-center justify-center text-sm shadow-sm flex-shrink-0 mt-1">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex items-center space-x-1.5">
+                    <span class="text-xs font-medium text-slate-400 mr-1">BioBot está preparando su respuesta</span>
+                    <div class="w-2 h-2 rounded-full bg-bioGreen-500 typing-dot"></div>
+                    <div class="w-2 h-2 rounded-full bg-bioGreen-500 typing-dot"></div>
+                    <div class="w-2 h-2 rounded-full bg-bioGreen-500 typing-dot"></div>
+                </div>
+            `;
+            chatMessages.appendChild(container);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return container;
+        }
+
+        // Formateador simple de Markdown para texto del bot
+        function formatMarkdown(text) {
+            let html = text
+                // Títulos
+                .replace(/^### (.*$)/gim, '<h3 class="font-bold text-slate-800 text-base mt-2 mb-1">$1</h3>')
+                .replace(/^## (.*$)/gim, '<h2 class="font-bold text-slate-800 text-lg mt-3 mb-1.5">$1</h2>')
+                // Negrita
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Citas / Avisos
+                .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-bioGreen-500 pl-3 py-1 italic bg-bioGreen-50/50 rounded-r text-slate-700 my-2">$1</blockquote>')
+                // Viñetas
+                .replace(/^\* (.*$)/gim, '<li class="ml-2">$1</li>')
+                .replace(/^- (.*$)/gim, '<li class="ml-2">$1</li>');
+
+            // Envolver viñetas en listas ul
+            html = html.replace(/(<li class="ml-2">.*<\/li>)/gs, '<ul>$1<\/ul>');
+
+            // Convertir saltos de línea dobles en párrafos
+            const paragraphs = html.split(/\n\n+/);
+            return paragraphs.map(p => {
+                if (p.startsWith('<h') || p.startsWith('<blockquote') || p.startsWith('<ul')) {
+                    return p;
+                }
+                return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+            }).join('');
+        }
+
+        // Lectura en voz alta usando la Web Speech Synthesis
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Cancelar lecturas previas
+                // Limpiar sintaxis markdown antes de leer
+                const cleanText = text.replace(/[*#>`]/g, '');
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = 'es-ES';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        /**
+         * =========================================================================
+         * OBTENER RESPUETA: Función Principal solicitada en los requisitos.
+         * Integración modular para llamadas a la API de Google Gemini con fallback local.
+         * =========================================================================
+         */
+        async function obtenerRespuesta(prompt) {
+            // Normalizar prompt del usuario
+            const promptLower = prompt.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+            // SI HAY API KEY CONFIGURADA: Intentar llamada a Gemini REST API
+            if (geminiApiKey) {
+                try {
+                    const systemPrompt = "Eres BioBot, un profesor experto de Biología amable, estructurado y pedagógico. Responde siempre en español usando formato Markdown claro con viñetas, términos destacados en negrita, ejemplos y una breve pregunta final para afianzar el conocimiento.";
+                    
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiApiKey}`;
+                    
+                    const payload = {
+                        contents: [{
+                            parts: [{ text: `${systemPrompt}\n\nPregunta del estudiante: ${prompt}` }]
+                        }]
+                    };
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Error en la API de Gemini: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    if (candidateText) {
+                        return candidateText;
+                    }
+                } catch (err) {
+                    console.warn("Fallo al conectar con la API de Gemini. Se recurre al motor local:", err);
+                }
+            }
+
+            // SIMULACIÓN O MOTOR LOCAL (Fallback cuando no hay API Key o falla el servidor)
+            // Simular retardo de red/pensamiento de profesor (0.8 segundos)
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            // Buscar coincidencias de palabras clave en la base de conocimientos
+            for (const entry of BIOLOGY_KNOWLEDGE_BASE) {
+                const hasMatch = entry.keywords.some(kw => {
+                    const kwNormalized = kw.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    return promptLower.includes(kwNormalized);
+                });
+
+                if (hasMatch) {
+                    return entry.response;
+                }
+            }
+
+            // Respuesta por defecto adaptativa simulando al profesor cuando el tema no está preconfigurado
+            return `¡Qué interesante consulta sobre biología! 🧪
+
+Como tu profesor virtual de Biología, me encanta que formules preguntas sobre **"${prompt}"**.
+
+### 💡 Conceptos Generales a Considerar:
+* En biología, todos los procesos están profundamente interconectados a nivel celular, genético y evolutivo.
+* Recuerda analizar siempre el **nivel de organización** (molecular, celular, tisular, de organismo o ecosistémico).
+
+📌 *Sugerencia pedagógica:* Intenta consultar sobre temas específicos como **la célula, el ADN, la fotosíntesis, la mitosis, la evolución, los virus o los ecosistemas**.
+
+*(Nota: Si deseas explicaciones más profundas y avanzadas generadas por IA sobre cualquier tema libre, puedes ingresar tu API Key de Gemini desde la parte superior).*`;
+        }
+    </script>
+</body>
+</html>
